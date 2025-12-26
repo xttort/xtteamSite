@@ -9,7 +9,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Раздача статических файлов из папки 'public'
 app.use(express.static(path.join(__dirname, 'public')));
-res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Маршруты API
 app.get('/api/hello', (req, res) => {
