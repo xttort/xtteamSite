@@ -1,0 +1,1 @@
+console.log('Node.js успешно установлен! Версия:', process.version)
