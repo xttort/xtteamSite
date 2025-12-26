@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Node.js + SQLite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .user-form {
+            margin: 20px 0;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 8px;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест Node.js + SQLite Бэкенд</h1>
+    
+    <div class="container">
+        <h2>1. Проверка сервера</h2>
+        <button onclick="testServer()">Тест API</button>
+        <div id="test-result"></div>
+    </div>
+    
+    <div class="container">
+        <h2>2. Работа с пользователями</h2>
+        
+        <div class="user-form">
+            <h3>Добавить пользователя</h3>
+            <input type="text" id="name" placeholder="Имя">
+            <input type="email" id="email" placeholder="Email">
+            <button onclick="addUser()">Добавить</button>
+        </div>
+        
+        <button onclick="getUsers()">Получить всех пользователей</button>
+        <button onclick="clearUsers()">Очистить список</button>
+        
+        <div id="users-list"></div>
+    </div>
+    
+    <div class="container">
+        <h2>3. Работа с файлами</h2>
+        <p>Эта страница загружена как статический файл из папки <code>public</code></p>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        
+        // 1. Тест сервера
+        async function testServer() {
+            try {
+                const response = await fetch(`${API_URL}/test`);
+                const data = await response.json();
+                document.getElementById('test-result').innerHTML = `
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p>✅ Сервер отвечает!</p>
+                `;
+            } catch (error) {
+                document.getElementById('test-result').innerHTML = 
+                    `<p style="color: red;">❌ Ошибка: ${error.message}</p>`;
+            }
+        }
+        
+        // 2. Получить всех пользователей
+        async function getUsers() {
+            try {
+                const response = await fetch(`${API_URL}/users`);
+                const users = await response.json();
+                
+                let html = '<h3>Список пользователей:</h3>';
+                if (users.length === 0) {
+                    html += '<p>Пользователей нет</p>';
+                } else {
+                    html += '<ul>';
+                    users.forEach(user => {
+                        html += `<li>${user.name} (${user.email}) 
+                                <button onclick="deleteUser(${user.id})">Удалить</button></li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                document.getElementById('users-list').innerHTML = html;
+            } catch (error) {
+                alert('Ошибка при получении пользователей: ' + error.message);
+            }
+        }
+        
+        // 3. Добавить пользователя
+        async function addUser() {
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            
+            if (!name || !email) {
+                alert('Заполните все поля');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, email })
+                });
+                
+                const result = await response.json();
+                alert(`Пользователь добавлен! ID: ${result.id}`);
+                
+                // Очищаем поля и обновляем список
+                document.getElementById('name').value = '';
+                document.getElementById('email').value = '';
+                getUsers();
+                
+            } catch (error) {
+                alert('Ошибка при добавлении: ' + error.message);
+            }
+        }
+        
+        // 4. Удалить пользователя
+        async function deleteUser(id) {
+            if (!confirm('Удалить пользователя?')) return;
+            
+            try {
+                await fetch(`${API_URL}/users/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                alert('Пользователь удален');
+                getUsers();
+            } catch (error) {
+                alert('Ошибка при удалении: ' + error.message);
+            }
+        }
+        
+        // 5. Очистить список пользователей
+        async function clearUsers() {
+            document.getElementById('users-list').innerHTML = '';
+        }
+        
+        // Автоматически тестируем сервер при загрузке
+        window.onload = testServer;
+    </script>
+</body>
+</html>
