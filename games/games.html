@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../style.css">
+    <title>Our Games - xtteam</title>
+    <link rel="icon" href="../images/icons/icon.svg">
+    <style>
+        /* Дополнительные стили для модального окна */
+        .game-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--overlay);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            padding: 20px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .game-modal::-webkit-scrollbar {
+            display: none;
+        }
+
+        .game-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: var(--white);
+            border-radius: 20px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: translateY(30px);
+            transition: transform 0.4s ease;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .modal-content::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+        }
+
+        .game-modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 25px 30px 15px;
+            border-bottom: 1px solid rgba(108, 92, 231, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 2.2rem;
+            color: var(--primary);
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: var(--gray);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .close-modal:hover {
+            background-color: rgba(108, 92, 231, 0.1);
+            color: var(--primary);
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-genre {
+            display: inline-block;
+            background-color: rgba(108, 92, 231, 0.1);
+            color: var(--primary);
+            padding: 6px 20px;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .modal-description {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: var(--dark);
+            margin-bottom: 25px;
+        }
+
+        .modal-meta {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 25px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid rgba(108, 92, 231, 0.1);
+        }
+
+        .modal-platform, .modal-release {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .meta-label {
+            font-size: 0.9rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .meta-value {
+            font-size: 1.1rem;
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .modal-footer {
+            padding: 0 30px 30px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            height: 50px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            text-decoration: none;
+        }
+
+        .modal-btn-primary {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+
+        .modal-btn-primary:hover {
+            background-color: var(--accent);
+            color: var(--dark);
+        }
+
+        .modal-btn-download {
+            background-color: var(--accent);
+            color: var(--dark);
+        }
+
+        .modal-btn-download:hover {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+
+        .modal-btn-secondary {
+            background-color: transparent;
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .modal-btn-secondary:hover {
+            background-color: rgba(108, 92, 231, 0.1);
+        }
+
+        /* Стили для контентных блоков */
+        .content-block {
+            margin-bottom: 25px;
+        }
+
+        .content-block:last-child {
+            margin-bottom: 0;
+        }
+
+        .content-image {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .content-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .content-image:hover img {
+            transform: scale(1.02);
+        }
+
+        .content-text {
+            padding: 15px;
+            background-color: rgba(108, 92, 231, 0.05);
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .content-text h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .content-text p {
+            color: var(--dark);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .content-gallery {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .content-gallery img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .content-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .content-grid-3 img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        /* Стили для гибкой сетки контента */
+        .content-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .content-row.reverse {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .content-row .content-image,
+        .content-row .content-text {
+            margin-bottom: 0;
+        }
+
+        /* Стили для кнопки скачивания в карточке игры */
+        .game-download-link {
+            margin-top: 15px;
+            align-self: flex-start;
+        }
+
+        .game-download-btn {
+            width: 160px;
+            height: 50px;
+            background-color: var(--accent);
+            color: var(--dark);
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .game-download-btn:hover {
+            background-color: var(--primary);
+            color: var(--white);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-download-btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        /* Стиль для недоступных игр */
+        .game-unavailable {
+            opacity: 0.7;
+        }
+
+        .download-unavailable {
+            background-color: var(--gray);
+            color: var(--white);
+            cursor: not-allowed;
+        }
+
+        .download-unavailable:hover {
+            background-color: var(--gray);
+            color: var(--white);
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Адаптивные стили для модального окна */
+        @media (max-width: 768px) {
+            .modal-content {
+                max-height: 95vh;
+            }
+            
+            .modal-title {
+                font-size: 1.8rem;
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .modal-description {
+                font-size: 1rem;
+            }
+            
+            .modal-meta {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .modal-footer {
+                flex-direction: column;
+            }
+            
+            .modal-btn {
+                width: 100%;
+            }
+            
+            .content-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .content-gallery {
+                grid-template-columns: 1fr;
+            }
+            
+            .content-grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .modal-title {
+                font-size: 1.6rem;
+            }
+            
+            .modal-header {
+                padding: 20px 20px 15px;
+            }
+            
+            .modal-body {
+                padding: 15px;
+            }
+            
+            .game-download-btn {
+                width: 140px;
+                height: 45px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a class="logo" href="../index.html"><img class="logo" src="../images/icons/icon.svg" alt="logo"> <h1 href="#!">xtteam</h1></a>
+        <ul class="header_list">
+            <li><a class="header_purple" href="../index.html">Latest news</a></li>
+            <li><a class="dot">•</a></li>
+            <li><a class="header_purple" href="games.html">!Games!</a></li>
+            <li><a class="dot">•</a></li>
+            <li><a class="header_purple" href="../aboutUs/aboutUs.html">About us</a></li>
+        </ul>
+        <a class="btn" href="mrcet040@gmail.com">Sign in</a>
+    </header>
+    
+    <div class="rectbg">
+    
+        
+        <!-- Контейнер для автоматически генерируемых карточек игр -->
+        <div class="games-grid" id="gamesContainer">
+            <!-- Карточки будут сгенерированы автоматически через JavaScript -->
+        </div>
+        
+        <div class="page-title" style="margin-top: 60px;">
+            <h2>Content loading (in future)</h2>
+            <p>Stay tuned for more announcements!</p>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для деталей игры -->
+    <div id="gameModal" class="game-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalGameTitle">Game Title</h2>
+                <button class="close-modal" id="closeModal">&times;</button>
+            </div>
+            
+            <div class="modal-body" id="modalGameContent">
+                <!-- Контент будет сгенерирован динамически -->
+            </div>
+            
+            <div class="modal-footer">
+                <a class="modal-btn modal-btn-download" id="modalDownloadBtn" target="_blank">Download</a>
+                <button class="modal-btn modal-btn-secondary" id="modalCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="footerWave">© 2025 xtteam. All rights reserved.</div>
+    </footer>
+
+    <script>
+        // Типы контентных блоков
+        const CONTENT_TYPES = {
+            IMAGE: 'image',
+            TEXT: 'text',
+            GALLERY: 'gallery',
+            ROW: 'row'
+        };
+        
+        // Данные об играх с произвольным контентом и ссылками на скачивание
+        const gamesData = [
+            {
+                id: 1,
+                title: "MEMEHELL",
+                genre: "horror fnaflike",
+                description: "A game about overcoming oneself, changing one's outlook on life, presented in the well-known format of fnaf fan games.",
+                image: "../images/games/Memehell/back.jpg",
+                platform: "PC",
+                release: "2023",
+                // Добавлена ссылка для скачивания
+                downloadLink: "https://drive.google.com/file/d/1l9xhFFjN1Fg6U46wDwrrXUmbrEz0y_Cw/view?usp=drive_link", // Замените на реальную ссылку
+                downloadAvailable: true,
+                content: [
+                    {
+                        type: CONTENT_TYPES.IMAGE,
+                        src: "../images/games/Memehell/back.jpg",
+                        alt: "MEMEHELL Main Screen"
+                    },
+                    {
+                        type: CONTENT_TYPES.TEXT,
+                        title: "Game Concept",
+                        text: "This game explores deep psychological themes through the lens of popular horror mechanics. Players must face their inner demons in a surreal environment."
+                    },
+                    {
+                        type: CONTENT_TYPES.GALLERY,
+                        images: [
+                            { src: "../images/games/Memehell/screenshot1.jpg", alt: "Screenshot 1" },
+                            { src: "../images/games/Memehell/screenshot2.jpg", alt: "Screenshot 2" }
+                        ]
+                    },
+                    {
+                        type: CONTENT_TYPES.TEXT,
+                        title: "Features",
+                        text: "• Dynamic horror mechanics<br>• Psychological storyline<br>• Multiple endings<br>• Original soundtrack"
+                    }
+                ]
+            },
+            {
+                id: 2,
+                title: "Fox's Nightmer",
+                genre: "horror TPS",
+                description: "A short TPS about a fox named Foxette, who woke up in a foggy forest with a shotgun in her paws, but no bullets.",
+                image: "../images/games/FoxsNightmer/foxIcon1.png",
+                platform: "PC",
+                release: "2024",
+                // Добавлена ссылка для скачивания
+                downloadLink: "https://drive.google.com/file/d/1urUu4EmzSBrUTvESMuGJI6yBvL05uuXg/view?usp=sharing", // Замените на реальную ссылку
+                downloadAvailable: true,
+                content: [
+                    {
+                        type: CONTENT_TYPES.ROW,
+                        reverse: false,
+                        left: {
+                            type: CONTENT_TYPES.IMAGE,
+                            src: "../images/games/FoxsNightmer/foxIcon1.png",
+                            alt: "Foxette Character"
+                        },
+                        right: {
+                            type: CONTENT_TYPES.TEXT,
+                            title: "The Protagonist",
+                            text: "Meet Foxette - a mysterious fox lost in a nightmare forest. Armed with only a shotgun and her wits, she must survive the horrors that await."
+                        }
+                    },
+                    {
+                        type: CONTENT_TYPES.ROW,
+                        reverse: true,
+                        left: {
+                            type: CONTENT_TYPES.TEXT,
+                            title: "Gameplay",
+                            text: "Third-person shooter mechanics combined with survival horror elements. Limited ammo forces strategic thinking."
+                        },
+                        right: {
+                            type: CONTENT_TYPES.IMAGE,
+                            src: "../images/games/FoxsNightmer/gameplay1.jpg",
+                            alt: "Gameplay Screenshot"
+                        }
+                    },
+                    {
+                        type: CONTENT_TYPES.GALLERY,
+                        images: [
+                            { src: "../images/games/FoxsNightmer/environment1.jpg", alt: "Forest Environment" },
+                            { src: "../images/games/FoxsNightmer/environment2.jpg", alt: "Misty Path" },
+                            { src: "../images/games/FoxsNightmer/enemy1.jpg", alt: "Enemy Design" }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 3,
+                title: "Coffee? Fall!",
+                genre: "simulator",
+                description: "A prototype game from game jam from GUAP",
+                image: "../images/games/CoffeeFall/coffeeFallFoxAndCoffeeMachineAndCupAndSunSet.png",
+                platform: "PC",
+                release: "~",
+                // Игра пока недоступна для скачивания
+                downloadLink: "#",
+                downloadAvailable: false,
+                content: [
+                    {
+                        type: CONTENT_TYPES.IMAGE,
+                        src: "../images/games/CoffeeFall/coffeeFallFoxAndCoffeeMachineAndCupAndSunSet.png",
+                        alt: "Coffee Fall Main Art"
+                    },
+                    {
+                        type: CONTENT_TYPES.TEXT,
+                        title: "Game Jam Project",
+                        text: "Created during a 48-hour game jam at GUAP University. The theme was 'Morning Routine' which inspired this coffee-making simulator."
+                    },
+                    {
+                        type: CONTENT_TYPES.GALLERY,
+                        images: [
+                            { src: "../images/games/CoffeeFall/mechanic1.jpg", alt: "Coffee Making" },
+                            { src: "../images/games/CoffeeFall/mechanic2.jpg", alt: "Customer Service" }
+                        ]
+                    },
+                    {
+                        type: CONTENT_TYPES.TEXT,
+                        title: "Development Notes",
+                        text: "Despite being a prototype, the game features fully functional coffee physics, customer AI, and a charming art style."
+                    },
+                    {
+                        type: CONTENT_TYPES.IMAGE,
+                        src: "../images/games/CoffeeFall/team_photo.jpg",
+                        alt: "Development Team"
+                    }
+                ]
+            }
+        ];
+        
+        // Функция для создания HTML контентного блока
+        function createContentBlock(content) {
+            switch (content.type) {
+                case CONTENT_TYPES.IMAGE:
+                    return `
+                        <div class="content-block">
+                            <div class="content-image">
+                                <img src="${content.src}" alt="${content.alt || ''}">
+                            </div>
+                        </div>
+                    `;
+                    
+                case CONTENT_TYPES.TEXT:
+                    return `
+                        <div class="content-block">
+                            <div class="content-text">
+                                ${content.title ? `<h3>${content.title}</h3>` : ''}
+                                <p>${content.text}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                case CONTENT_TYPES.GALLERY:
+                    const images = content.images.map(img => 
+                        `<img src="${img.src}" alt="${img.alt || ''}">`
+                    ).join('');
+                    
+                    const galleryClass = content.images.length === 3 ? 'content-grid-3' : 'content-gallery';
+                    
+                    return `
+                        <div class="content-block">
+                            <div class="${galleryClass}">
+                                ${images}
+                            </div>
+                            ${content.caption ? `<p class="gallery-caption">${content.caption}</p>` : ''}
+                        </div>
+                    `;
+                    
+                case CONTENT_TYPES.ROW:
+                    const leftContent = createContentElement(content.left);
+                    const rightContent = createContentElement(content.right);
+                    const reverseClass = content.reverse ? 'reverse' : '';
+                    
+                    return `
+                        <div class="content-row ${reverseClass}">
+                            ${leftContent}
+                            ${rightContent}
+                        </div>
+                    `;
+                    
+                default:
+                    return '';
+            }
+        }
+        
+        // Вспомогательная функция для создания элементов строки
+        function createContentElement(content) {
+            if (content.type === CONTENT_TYPES.IMAGE) {
+                return `
+                    <div class="content-image">
+                        <img src="${content.src}" alt="${content.alt || ''}">
+                    </div>
+                `;
+            } else if (content.type === CONTENT_TYPES.TEXT) {
+                return `
+                    <div class="content-text">
+                        ${content.title ? `<h3>${content.title}</h3>` : ''}
+                        <p>${content.text}</p>
+                    </div>
+                `;
+            }
+            return '';
+        }
+        
+        // Функция для генерации HTML карточки игры
+        function createGameCard(game) {
+            const downloadBtnClass = game.downloadAvailable ? '' : 'download-unavailable';
+            const downloadBtnText = game.downloadAvailable ? 'Download' : 'Coming Soon';
+            
+            return `
+                <div class="game-card ${!game.downloadAvailable ? 'game-unavailable' : ''}" data-game="${game.id}">
+                    <div class="game-image">
+                        <img src="${game.image}" alt="${game.title}">
+                    </div>
+                    <div class="game-content">
+                        <h3 class="game-title">${game.title}</h3>
+                        <div class="game-genre">${game.genre}</div>
+                        <p class="game-description">${game.description}</p>
+                        <div class="game-meta">
+                            <div class="game-platform">${game.platform}</div>
+                            <div class="game-release">${game.release}</div>
+                        </div>
+                        
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Функция для рендеринга всех карточек игр
+        function renderGameCards() {
+            const gamesContainer = document.getElementById('gamesContainer');
+            
+            if (!gamesContainer || gamesData.length === 0) {
+                console.error('Контейнер для игр не найден или нет данных об играх');
+                return;
+            }
+            
+            // Генерируем HTML для всех карточек
+            const gamesHTML = gamesData.map(game => createGameCard(game)).join('');
+            
+            // Вставляем карточки в контейнер
+            gamesContainer.innerHTML = gamesHTML;
+            
+            // После рендеринга добавляем обработчики событий
+            addGameCardEventListeners();
+        }
+        
+        // Функция для добавления обработчиков событий на карточки игр
+        function addGameCardEventListeners() {
+            document.querySelectorAll('.game-card').forEach(card => {
+                // Открытие модального окна при клике
+                card.addEventListener('click', function(e) {
+                    // Не открываем модальное окно, если кликнули на кнопку скачивания
+                    if (!e.target.closest('.game-download-btn')) {
+                        const gameId = parseInt(this.getAttribute('data-game'));
+                        openModal(gameId);
+                    }
+                });
+                
+                // Анимация при наведении
+                card.addEventListener('mouseenter', function() {
+                    const title = this.querySelector('.game-title');
+                    if (title) {
+                        title.style.transform = 'translateY(-5px)';
+                        title.style.transition = 'transform 0.3s ease';
+                    }
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    const title = this.querySelector('.game-title');
+                    if (title) {
+                        title.style.transform = 'translateY(0)';
+                    }
+                });
+            });
+        }
+        
+        // Элементы модального окна
+        const gameModal = document.getElementById('gameModal');
+        const closeModalBtn = document.getElementById('closeModal');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+        const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+        const modalGameTitle = document.getElementById('modalGameTitle');
+        const modalGameContent = document.getElementById('modalGameContent');
+        
+        // Текущая выбранная игра
+        let currentGameId = null;
+        
+        // Функция для поиска игры по ID
+        function getGameById(id) {
+            return gamesData.find(game => game.id === id);
+        }
+        
+        // Открытие модального окна
+        function openModal(gameId) {
+            const game = getGameById(gameId);
+            if (!game) {
+                console.error(`Игра с ID ${gameId} не найдена`);
+                return;
+            }
+            
+            currentGameId = gameId;
+            
+            // Заполняем заголовок
+            modalGameTitle.textContent = game.title;
+            
+            // Настраиваем кнопку скачивания в модальном окне
+            modalDownloadBtn.href = game.downloadLink;
+            modalDownloadBtn.textContent = game.downloadAvailable ? 'Download Now' : 'Coming Soon';
+            
+            if (game.downloadAvailable) {
+                modalDownloadBtn.classList.remove('download-unavailable');
+                modalDownloadBtn.classList.add('modal-btn-download');
+                modalDownloadBtn.onclick = null;
+            } else {
+                modalDownloadBtn.classList.add('download-unavailable');
+                modalDownloadBtn.classList.remove('modal-btn-download');
+                modalDownloadBtn.onclick = function(e) {
+                    e.preventDefault();
+                    alert('This game is not available for download yet. Stay tuned!');
+                    return false;
+                };
+            }
+            
+            // Генерируем контент модального окна
+            let contentHTML = `
+                <div class="modal-genre">${game.genre}</div>
+                <p class="modal-description">${game.description}</p>
+                
+                <div class="modal-meta">
+                    <div class="modal-platform">
+                        <div class="meta-label">Platform</div>
+                        <div class="meta-value">${game.platform}</div>
+                    </div>
+                    <div class="modal-release">
+                        <div class="meta-label">Release Year</div>
+                        <div class="meta-value">${game.release}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Добавляем статус доступности
+            contentHTML += `
+                <div class="content-block">
+                    <div class="content-text">
+                        <h3>Availability</h3>
+                        <p>${game.downloadAvailable ? 
+                            '✓ Available for download now!' : 
+                            '✗ Currently in development. Download will be available soon.'}
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // Добавляем произвольный контент
+            if (game.content && game.content.length > 0) {
+                contentHTML += game.content.map(block => createContentBlock(block)).join('');
+            }
+            
+            // Вставляем контент
+            modalGameContent.innerHTML = contentHTML;
+            
+            // Показываем модальное окно
+            gameModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Закрытие модального окна
+        function closeModal() {
+            gameModal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Обработчики закрытия модального окна
+        closeModalBtn.addEventListener('click', closeModal);
+        modalCloseBtn.addEventListener('click', closeModal);
+        
+        // Закрытие при клике на фон
+        gameModal.addEventListener('click', function(e) {
+            if (e.target === gameModal) {
+                closeModal();
+            }
+        });
+        
+        // Закрытие по клавише Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && gameModal.classList.contains('active')) {
+                closeModal();
+            }
+        });
+        
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Рендерим карточки игр
+            renderGameCards();
+            
+
+            
+        });
+    </script>
+</body>
+</html>
