@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(session({
-    secret: 'xtteam-secret-key-2025',
+    secret: process.env.SESSION_SECRET || 'xtteam-secret-key-2025',
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -22,7 +22,7 @@ app.use(session({
     }
 }));
 
-// Статические файлы из разных директорий
+// Статические файлы
 app.use(express.static(path.join(__dirname)));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'games')));
@@ -39,9 +39,24 @@ app.use((req, res, next) => {
     next();
 });
 
-// API эндпоинты
+// Проверка подключения к БД
+app.get('/api/health', async (req, res) => {
+    try {
+        const status = await db.checkDatabaseStatus();
+        res.json({
+            success: true,
+            database: 'PostgreSQL',
+            status: status
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Database connection failed'
+        });
+    }
+});
 
-// Регистрация
+// API эндпоинты (остаются без изменений, кроме исправления)
 app.post('/api/register', async (req, res) => {
     try {
         const { username, password, email } = req.body;
@@ -67,11 +82,10 @@ app.post('/api/register', async (req, res) => {
             });
         }
         
-        // Обработка email: если пустая строка или не указан - делаем null
+        // Обработка email
         let cleanEmail = null;
         if (email && email.trim() !== '') {
             cleanEmail = email.trim();
-            // Проверяем формат email
             if (!isValidEmail(cleanEmail)) {
                 return res.status(400).json({
                     success: false,
@@ -80,7 +94,7 @@ app.post('/api/register', async (req, res) => {
             }
         }
         
-        // Проверяем, существует ли пользователь с таким username
+        // Проверяем существование пользователя
         const existingUser = await db.getUserByUsername(username);
         if (existingUser) {
             return res.status(400).json({
@@ -109,10 +123,9 @@ app.post('/api/register', async (req, res) => {
     } catch (error) {
         console.error('Ошибка регистрации:', error);
         
-        // Более информативные сообщения об ошибках
         let errorMessage = 'Внутренняя ошибка сервера';
         
-        if (error.message && error.message.includes('UNIQUE constraint failed')) {
+        if (error.message && error.message.includes('duplicate key')) {
             if (error.message.includes('email')) {
                 errorMessage = 'Пользователь с таким email уже существует';
             } else if (error.message.includes('username')) {
@@ -132,6 +145,8 @@ function isValidEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
 }
+
+// Остальные эндпоинты остаются без изменений (login, logout, achievements, unlock-achievement, me)
 
 // Вход
 app.post('/api/login', async (req, res) => {
@@ -211,7 +226,7 @@ app.get('/api/achievements', async (req, res) => {
             const allAchievements = await db.getAllAchievements();
             achievements = allAchievements.map(a => ({
                 ...a,
-                unlocked: 0
+                unlocked: false
             }));
         }
         
@@ -297,21 +312,17 @@ app.get('/api/me', async (req, res) => {
     }
 });
 
-// Маршруты для HTML страниц
-
-// Главная страница
+// Маршруты для HTML страниц (без изменений)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Страница профиля
 app.get('/profile', (req, res) => {
     const profilePath = path.join(__dirname, 'profile.html');
     
     if (fs.existsSync(profilePath)) {
         res.sendFile(profilePath);
     } else {
-        // Пробуем найти в public
         const publicProfilePath = path.join(__dirname, 'public', 'profile.html');
         if (fs.existsSync(publicProfilePath)) {
             res.sendFile(publicProfilePath);
@@ -321,7 +332,6 @@ app.get('/profile', (req, res) => {
     }
 });
 
-// Страница игр
 app.get('/games', (req, res) => {
     const gamesPath = path.join(__dirname, 'games', 'games.html');
     if (fs.existsSync(gamesPath)) {
@@ -331,7 +341,6 @@ app.get('/games', (req, res) => {
     }
 });
 
-// Страница "О нас"
 app.get('/about', (req, res) => {
     const aboutPath = path.join(__dirname, 'aboutUs', 'aboutUs.html');
     if (fs.existsSync(aboutPath)) {
@@ -341,7 +350,7 @@ app.get('/about', (req, res) => {
     }
 });
 
-// Fallback для всех остальных маршрутов
+// Fallback
 app.get('*', (req, res) => {
     res.status(404).send('Страница не найдена');
 });
@@ -349,5 +358,6 @@ app.get('*', (req, res) => {
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
+    console.log(`📊 База данных: PostgreSQL`);
     console.log(`📁 Корневая директория: ${__dirname}`);
 });

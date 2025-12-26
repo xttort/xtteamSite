@@ -1,96 +1,70 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
-const fs = require('fs');
 
 class Database {
     constructor() {
-        // Определяем путь к файлу БД в зависимости от окружения
-        let dbPath;
-        
-        if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
-            // На Render используем /tmp директорию для записи
-            dbPath = '/tmp/xtteam_database.db';
-            console.log('🚀 Режим Render/Production, БД будет сохранена в:', dbPath);
-        } else {
-            // Локальная разработка
-            dbPath = path.join(__dirname, 'database.db');
-            console.log('💻 Локальный режим, БД будет сохранена в:', dbPath);
-        }
-        
-        // Проверяем и создаем директорию если нужно
-        const dir = path.dirname(dbPath);
-        if (dir && !fs.existsSync(dir)) {
-            try {
-                fs.mkdirSync(dir, { recursive: true });
-                console.log('📁 Создана директория:', dir);
-            } catch (err) {
-                console.error('❌ Ошибка создания директории:', err);
-            }
-        }
-        
-        // Подключаемся к БД
-        this.db = new sqlite3.Database(dbPath, (err) => {
-            if (err) {
-                console.error('❌ Ошибка подключения к БД:', err);
-                console.error('Путь к БД:', dbPath);
-            } else {
-                console.log('✅ Подключено к SQLite базе данных');
-                console.log('📍 Путь:', dbPath);
-                this.initTables();
-            }
+        this.pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { 
+                rejectUnauthorized: false 
+            } : false
         });
+        
+        console.log('✅ Подключение к PostgreSQL...');
+        this.initTables();
     }
 
-    initTables() {
-        // Таблица пользователей
-        this.db.run(`
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                email TEXT UNIQUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `, (err) => {
-            if (err) console.error('Ошибка создания таблицы users:', err);
-        });
+    async initTables() {
+        const client = await this.pool.connect();
+        try {
+            // Таблица пользователей
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    email VARCHAR(100) UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            console.log('✅ Таблица users создана/проверена');
 
-        // Таблица достижений
-        this.db.run(`
-            CREATE TABLE IF NOT EXISTS achievements (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                icon_path TEXT,
-                category TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `, (err) => {
-            if (err) console.error('Ошибка создания таблицы achievements:', err);
-        });
+            // Таблица достижений
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS achievements (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    description TEXT NOT NULL,
+                    icon_path VARCHAR(255),
+                    category VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            console.log('✅ Таблица achievements создана/проверена');
 
-        // Таблица связей пользователь-достижение
-        this.db.run(`
-            CREATE TABLE IF NOT EXISTS user_achievements (
-                user_id INTEGER,
-                achievement_id INTEGER,
-                unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (achievement_id) REFERENCES achievements(id),
-                PRIMARY KEY (user_id, achievement_id)
-            )
-        `, (err) => {
-            if (err) console.error('Ошибка создания таблицы user_achievements:', err);
-        });
+            // Таблица связей пользователь-достижение
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    achievement_id INTEGER REFERENCES achievements(id) ON DELETE CASCADE,
+                    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, achievement_id)
+                )
+            `);
+            console.log('✅ Таблица user_achievements создана/проверена');
 
-        // Добавляем базовые достижения с задержкой чтобы таблицы успели создать
-        setTimeout(() => {
-            this.initAchievements();
-        }, 100);
+            // Добавляем базовые достижения
+            await this.initAchievements(client);
+            
+        } catch (error) {
+            console.error('❌ Ошибка инициализации таблиц:', error);
+            throw error;
+        } finally {
+            client.release();
+        }
     }
 
-    async initAchievements() {
+    async initAchievements(client) {
         const achievements = [
             {
                 name: "Team Introduction",
@@ -141,58 +115,59 @@ class Database {
                 category: "contact"
             }
         ];
-    
-        // Проверяем, есть ли уже достижения
-        this.db.get("SELECT COUNT(*) as count FROM achievements", async (err, row) => {
-            if (err) {
-                console.error('Ошибка при проверке достижений:', err);
-                return;
-            }
+
+        try {
+            // Проверяем, есть ли уже достижения
+            const result = await client.query('SELECT COUNT(*) as count FROM achievements');
+            const count = parseInt(result.rows[0].count);
             
-            if (!row || row.count === 0) {
+            if (count === 0) {
                 console.log('Добавляем базовые достижения...');
-                let successCount = 0;
-                let errorCount = 0;
                 
                 for (const achievement of achievements) {
-                    try {
-                        await this.addAchievement(achievement);
-                        successCount++;
-                    } catch (error) {
-                        console.error('Ошибка при добавлении достижения:', error.message);
-                        errorCount++;
-                    }
+                    await client.query(
+                        'INSERT INTO achievements (name, description, icon_path, category) VALUES ($1, $2, $3, $4)',
+                        [achievement.name, achievement.description, achievement.icon_path, achievement.category]
+                    );
                 }
-                
-                console.log(`✅ Базовые достижения добавлены: ${successCount} успешно, ${errorCount} с ошибками`);
+                console.log('✅ Базовые достижения добавлены');
             } else {
-                console.log(`✅ В базе уже есть ${row.count} достижений`);
+                console.log(`✅ В базе уже есть ${count} достижений`);
             }
-        });
+        } catch (error) {
+            console.error('❌ Ошибка при добавлении достижений:', error);
+        }
     }
 
     // Методы для пользователей
     async createUser(username, password, email = null) {
-        const passwordHash = await bcrypt.hash(password, 10);
-        return new Promise((resolve, reject) => {
-            this.db.run(
-                "INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)",
-                [username, passwordHash, email],
-                function(err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                }
+        const client = await this.pool.connect();
+        try {
+            const passwordHash = await bcrypt.hash(password, 10);
+            
+            const result = await client.query(
+                'INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id',
+                [username, passwordHash, email]
             );
-        });
+            
+            return result.rows[0].id;
+        } finally {
+            client.release();
+        }
     }
 
     async getUserByUsername(username) {
-        return new Promise((resolve, reject) => {
-            this.db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT * FROM users WHERE username = $1',
+                [username]
+            );
+            
+            return result.rows[0] || null;
+        } finally {
+            client.release();
+        }
     }
 
     async verifyUser(username, password) {
@@ -204,135 +179,129 @@ class Database {
 
     // Методы для достижений
     async addAchievement(achievement) {
-        return new Promise((resolve, reject) => {
-            this.db.run(
-                "INSERT INTO achievements (name, description, icon_path, category) VALUES (?, ?, ?, ?)",
-                [achievement.name, achievement.description, achievement.icon_path, achievement.category],
-                function(err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                }
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                'INSERT INTO achievements (name, description, icon_path, category) VALUES ($1, $2, $3, $4) RETURNING id',
+                [achievement.name, achievement.description, achievement.icon_path, achievement.category]
             );
-        });
+            
+            return result.rows[0].id;
+        } finally {
+            client.release();
+        }
     }
 
     async unlockAchievement(userId, achievementName) {
-        return new Promise(async (resolve, reject) => {
+        const client = await this.pool.connect();
+        try {
             // Находим достижение
-            this.db.get(
-                "SELECT id FROM achievements WHERE name = ?",
-                [achievementName],
-                async (err, achievement) => {
-                    if (err) {
-                        console.error('Ошибка поиска достижения:', err);
-                        reject(err);
-                    } else if (!achievement) {
-                        console.log(`Достижение "${achievementName}" не найдено в базе`);
-                        resolve(false);
-                    } else {
-                        // Проверяем, не разблокировано ли уже
-                        this.db.get(
-                            "SELECT 1 FROM user_achievements WHERE user_id = ? AND achievement_id = ?",
-                            [userId, achievement.id],
-                            async (err, row) => {
-                                if (err) {
-                                    console.error('Ошибка проверки разблокировки:', err);
-                                    reject(err);
-                                } else if (row) {
-                                    console.log(`Достижение "${achievementName}" уже разблокировано у пользователя ${userId}`);
-                                    resolve(false); // Уже разблокировано
-                                } else {
-                                    // Разблокируем
-                                    this.db.run(
-                                        "INSERT INTO user_achievements (user_id, achievement_id) VALUES (?, ?)",
-                                        [userId, achievement.id],
-                                        (err) => {
-                                            if (err) {
-                                                console.error('Ошибка разблокировки достижения:', err);
-                                                reject(err);
-                                            } else {
-                                                console.log(`🏆 Достижение "${achievementName}" разблокировано для пользователя ${userId}`);
-                                                resolve(true);
-                                            }
-                                        }
-                                    );
-                                }
-                            }
-                        );
-                    }
-                }
+            const achievementResult = await client.query(
+                'SELECT id FROM achievements WHERE name = $1',
+                [achievementName]
             );
-        });
+            
+            if (achievementResult.rows.length === 0) {
+                console.log(`Достижение "${achievementName}" не найдено`);
+                return false;
+            }
+            
+            const achievementId = achievementResult.rows[0].id;
+            
+            // Проверяем, не разблокировано ли уже
+            const checkResult = await client.query(
+                'SELECT 1 FROM user_achievements WHERE user_id = $1 AND achievement_id = $2',
+                [userId, achievementId]
+            );
+            
+            if (checkResult.rows.length > 0) {
+                console.log(`Достижение "${achievementName}" уже разблокировано у пользователя ${userId}`);
+                return false;
+            }
+            
+            // Разблокируем
+            await client.query(
+                'INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)',
+                [userId, achievementId]
+            );
+            
+            console.log(`🏆 Достижение "${achievementName}" разблокировано для пользователя ${userId}`);
+            return true;
+            
+        } catch (error) {
+            console.error('Ошибка разблокировки достижения:', error);
+            return false;
+        } finally {
+            client.release();
+        }
     }
 
     async getUserAchievements(userId) {
-        return new Promise((resolve, reject) => {
-            this.db.all(`
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(`
                 SELECT a.*, 
-                       CASE WHEN ua.user_id IS NOT NULL THEN 1 ELSE 0 END as unlocked
+                       CASE WHEN ua.user_id IS NOT NULL THEN true ELSE false END as unlocked
                 FROM achievements a
-                LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = ?
+                LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = $1
                 ORDER BY a.category, a.id
-            `, [userId], (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows);
-            });
-        });
+            `, [userId]);
+            
+            return result.rows;
+        } finally {
+            client.release();
+        }
     }
 
     async getUserById(userId) {
-        return new Promise((resolve, reject) => {
-            this.db.get("SELECT id, username, email, created_at FROM users WHERE id = ?", [userId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT id, username, email, created_at FROM users WHERE id = $1',
+                [userId]
+            );
+            
+            return result.rows[0] || null;
+        } finally {
+            client.release();
+        }
     }
 
     async getAllAchievements() {
-        return new Promise((resolve, reject) => {
-            this.db.all("SELECT * FROM achievements ORDER BY category, id", (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows);
-            });
-        });
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT * FROM achievements ORDER BY category, id'
+            );
+            
+            return result.rows;
+        } finally {
+            client.release();
+        }
     }
 
     // Метод для проверки состояния БД
     async checkDatabaseStatus() {
-        return new Promise((resolve, reject) => {
-            this.db.get("SELECT COUNT(*) as user_count FROM users", (err, userRow) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                
-                this.db.get("SELECT COUNT(*) as achievement_count FROM achievements", (err, achievementRow) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    
-                    this.db.get("SELECT COUNT(*) as user_achievement_count FROM user_achievements", (err, uaRow) => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-                        
-                        resolve({
-                            users: userRow.user_count,
-                            achievements: achievementRow.achievement_count,
-                            user_achievements: uaRow.user_achievement_count,
-                            status: 'OK'
-                        });
-                    });
-                });
-            });
-        });
+        const client = await this.pool.connect();
+        try {
+            const usersResult = await client.query('SELECT COUNT(*) as user_count FROM users');
+            const achievementsResult = await client.query('SELECT COUNT(*) as achievement_count FROM achievements');
+            const userAchievementsResult = await client.query('SELECT COUNT(*) as user_achievement_count FROM user_achievements');
+            
+            return {
+                users: parseInt(usersResult.rows[0].user_count),
+                achievements: parseInt(achievementsResult.rows[0].achievement_count),
+                user_achievements: parseInt(userAchievementsResult.rows[0].user_achievement_count),
+                status: 'OK'
+            };
+        } finally {
+            client.release();
+        }
     }
 
-    close() {
-        this.db.close();
+    // Закрытие соединения
+    async close() {
+        await this.pool.end();
     }
 }
 
