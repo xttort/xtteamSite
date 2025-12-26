@@ -92,7 +92,7 @@ app.get('/', (req, res) => {
                     <h3>Доступные ссылки:</h3>
                     <a href="/" target="_blank">Главная страница</a>
                     <a href="/api/hello" target="_blank">API тест</a>
-                    <a href="/test.html" target="_blank">Тестовая страница</a>
+                    <a href="./test.html" target="_blank">Тестовая страница</a>
                 </div>
                 
                 <div class="code">
