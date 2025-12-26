@@ -17,7 +17,18 @@
             <li><a class = "dot">•</a></li>
             <li><a class="header_purple" href="./aboutUs/aboutUs.html">About us</a></li>
         </ul>
-        <a class="btn" href="mrcet040@gmail.com">Sign in</a>
+        <div class="auth-container">
+            <div id="authButton" class="auth-button">
+                <a class="btn"  onclick="window.authModal.show(); return false;">Sign in</a>
+            </div>
+            
+            <div id="profileButton" class="profile-info" style="display: none;">
+                <a href="/profile" class="profile-link">
+                    <div class="profile-avatar" id="profileAvatar"></div>
+                    <span class="profile-name" id="profileName"></span>
+                </a>
+            </div>
+        </div>
     </header>
     <div class ="rectbg">
         <div>
@@ -191,6 +202,530 @@
         <h1 class="footerWave">© 2025 xtteam. All rights reserved.</h1>
     </footer>
 
+    <script>
+        // Проверка авторизации
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/achievements');
+                const data = await response.json();
+                
+                if (data.user) {
+                    // Пользователь авторизован
+                    document.getElementById('authButton').style.display = 'none';
+                    document.getElementById('profileButton').style.display = 'flex';
+                    
+                    // Устанавливаем аватар и имя
+                    const avatar = document.getElementById('profileAvatar');
+                    const name = document.getElementById('profileName');
+                    
+                    const firstLetter = data.user.username.charAt(0).toUpperCase();
+                    avatar.textContent = firstLetter;
+                    name.textContent = data.user.username;
+                }
+            } catch (error) {
+                console.error('Ошибка проверки авторизации:', error);
+            }
+        }
+    
+        // Функция для разблокировки достижения
+        async function unlockAchievement(achievementName) {
+            try {
+                const response = await fetch('/api/unlock-achievement', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ achievementName })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log(`🏆 ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Ошибка разблокировки достижения:', error);
+            }
+        }
+    
+        // Трекеры для новых достижений
+        let hoveredTiles = new Set();
+        let openedGameModals = new Set();
+        let downloadedGames = new Set();
+    
+        // Добавляем обработчики для разблокировки достижений
+        document.addEventListener('DOMContentLoaded', () => {
+            // Проверяем авторизацию
+            checkAuth();
+            
+            // Достижение "With Registration!" - разблокируется после регистрации через модальное окно
+            // (уже реализовано в server.js при регистрации)
+            
+            // Достижение "First News" - при прокрутке к первой новости
+            const newsSection = document.querySelector('.news-section');
+            if (newsSection) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            unlockAchievement('First News');
+                            observer.disconnect();
+                        }
+                    });
+                }, { threshold: 0.5 });
+                
+                observer.observe(newsSection);
+            }
+            
+            // Достижение "Curious" - наведение мыши на все плитки
+            document.querySelectorAll('.tile').forEach((tile, index) => {
+                tile.addEventListener('mouseenter', function() {
+                    hoveredTiles.add(index);
+                    
+                    // Проверяем, все ли плитки были наведены
+                    if (hoveredTiles.size === document.querySelectorAll('.tile').length) {
+                        unlockAchievement('Curious');
+                    }
+                    
+                    // Добавляем небольшой эффект для текста внутри плитки
+                    const title = this.querySelector('.tile-title');
+                    if (title) {
+                        title.style.transform = 'translateY(-5px)';
+                        title.style.transition = 'transform 0.3s ease';
+                    }
+                });
+                
+                tile.addEventListener('mouseleave', function() {
+                    // Возвращаем текст на место
+                    const title = this.querySelector('.tile-title');
+                    if (title) {
+                        title.style.transform = 'translateY(0)';
+                    }
+                });
+            });
+            
+            // Достижение "Team Introduction" - при клике на ссылку "About Us"
+            document.querySelectorAll('a[href*="aboutUs.html"]').forEach(link => {
+                link.addEventListener('click', () => {
+                    setTimeout(() => {
+                        unlockAchievement('Team Introduction');
+                    }, 100);
+                });
+            });
+            
+            // Достижение "Letter to Developer" - при клике на кнопку письма
+            document.querySelectorAll('a[href*="mail.google.com"]').forEach(link => {
+                link.addEventListener('click', () => {
+                    unlockAchievement('Letter to Developer');
+                });
+            });
+            
+            // Достижение "YouTube Subscriber" - при клике на ссылку YouTube
+            document.querySelectorAll('a[href*="youtube.com"]').forEach(link => {
+                link.addEventListener('click', () => {
+                    unlockAchievement('YouTube Subscriber');
+                });
+            });
+            
+            // Достижение "Game Observer" и "GamEr" будут разблокироваться в games.html
+            
+            // Инициализируем модальное окно авторизации
+            window.authModal = new AuthModal();
+        });
+    </script>
 
+    <!-- Модальное окно авторизации -->
+<div id="authModal" class="auth-modal">
+    <div class="modal-content">
+        <button class="close-modal" id="closeAuthModal">&times;</button>
+        
+        <div class="auth-tabs">
+            <button class="auth-tab active" data-tab="login">Login</button>
+            <button class="auth-tab" data-tab="register">Register</button>
+        </div>
+
+        <!-- Форма входа -->
+        <div id="loginForm" class="auth-form active">
+            <h2 class="form-title">Login</h2>
+            
+            <div class="auth-message" id="loginMessage"></div>
+            
+            <div class="form-group">
+                <label class="form-label">user name</label>
+                <input type="text" class="form-input" id="loginUsername" placeholder="Write your login">
+                <div class="form-error" id="loginUsernameError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="loginPassword" placeholder="Write your password">
+                <div class="form-error" id="loginPasswordError"></div>
+            </div>
+            
+            <button class="auth-btn" id="loginBtn">Login</button>
+            
+            <div class="form-switch">
+                Don't have an account?
+                <a class="switch-link" data-switch="register">Register</a>
+            </div>
+        </div>
+
+        <!-- Форма регистрации -->
+        <div id="registerForm" class="auth-form">
+            <h2 class="form-title">Create account</h2>
+            
+            <div class="auth-message" id="registerMessage"></div>
+            
+            <div class="form-group">
+                <label class="form-label">User name</label>
+                <input type="text" class="form-input" id="registerUsername" placeholder="Create a password">
+                <div class="form-error" id="registerUsernameError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Email (optional)</label>
+                <input type="email" class="form-input" id="registerEmail" placeholder="example@email.com">
+                <div class="form-error" id="registerEmailError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="registerPassword" placeholder="Create a password">
+                <div class="form-error" id="registerPasswordError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Password confirmation</label>
+                <input type="password" class="form-input" id="registerConfirmPassword" placeholder="Repeat a password">
+                <div class="form-error" id="registerConfirmPasswordError"></div>
+            </div>
+            
+            <button class="auth-btn" id="registerBtn">Create account</button>
+            
+            <div class="form-switch">
+                Already have an account?
+                <a class="switch-link" data-switch="login">Login</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Скрипт модального окна авторизации
+class AuthModal {
+    constructor() {
+        this.modal = document.getElementById('authModal');
+        this.tabs = document.querySelectorAll('.auth-tab');
+        this.forms = document.querySelectorAll('.auth-form');
+        this.closeBtn = document.getElementById('closeAuthModal');
+        this.switchLinks = document.querySelectorAll('.switch-link');
+        
+        this.init();
+    }
+
+    init() {
+        // Обработчики вкладок
+        this.tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                this.switchTab(tabName);
+            });
+        });
+
+        // Обработчики переключения форм
+        this.switchLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                const formName = link.dataset.switch;
+                this.switchTab(formName);
+            });
+        });
+
+        // Закрытие модального окна
+        this.closeBtn.addEventListener('click', () => {
+            this.hide();
+        });
+
+        // Закрытие по клику на фон
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                this.hide();
+            }
+        });
+
+        // Инициализация форм
+        this.initForms();
+    }
+
+    switchTab(tabName) {
+        // Обновляем активную вкладку
+        this.tabs.forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        // Показываем активную форму
+        this.forms.forEach(form => {
+            form.classList.toggle('active', form.id === `${tabName}Form`);
+        });
+
+        // Очищаем сообщения
+        this.clearMessages();
+    }
+
+    initForms() {
+        // Форма входа
+        const loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => this.handleLogin());
+        }
+
+        // Форма регистрации
+        const registerBtn = document.getElementById('registerBtn');
+        if (registerBtn) {
+            registerBtn.addEventListener('click', () => this.handleRegister());
+        }
+    }
+
+    async handleLogin() {
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+        
+        // Очистка ошибок
+        this.clearErrors('login');
+        
+        // Валидация
+        let isValid = true;
+        
+        if (!username) {
+            this.showError('loginUsernameError', 'Введите имя пользователя');
+            isValid = false;
+        }
+        
+        if (!password) {
+            this.showError('loginPasswordError', 'Введите пароль');
+            isValid = false;
+        }
+        
+        if (!isValid) return;
+        
+        // Блокировка кнопки
+        const loginBtn = document.getElementById('loginBtn');
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Вход...';
+        
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showMessage('loginMessage', 'Вход выполнен успешно!', 'success');
+                setTimeout(() => {
+                    this.hide();
+                    window.location.reload();
+                }, 1500);
+            } else {
+                this.showMessage('loginMessage', data.error || 'Ошибка входа', 'error');
+            }
+        } catch (error) {
+            this.showMessage('loginMessage', 'Ошибка сети', 'error');
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Войти';
+        }
+    }
+
+    async handleRegister() {
+        const username = document.getElementById('registerUsername').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
+        const password = document.getElementById('registerPassword').value.trim();
+        const confirmPassword = document.getElementById('registerConfirmPassword').value.trim();
+        
+        // Очистка ошибок
+        this.clearErrors('register');
+        
+        // Валидация
+        let isValid = true;
+        
+        if (!username) {
+            this.showError('registerUsernameError', 'Введите имя пользователя');
+            isValid = false;
+        } else if (username.length < 3) {
+            this.showError('registerUsernameError', 'Минимум 3 символа');
+            isValid = false;
+        }
+        
+        if (email && !this.validateEmail(email)) {
+    this.showError('registerEmailError', 'Неверный формат email');
+    isValid = false;
+}
+        
+        if (!password) {
+            this.showError('registerPasswordError', 'Введите пароль');
+            isValid = false;
+        } else if (password.length < 6) {
+            this.showError('registerPasswordError', 'Минимум 6 символов');
+            isValid = false;
+        }
+        
+        if (!confirmPassword) {
+            this.showError('registerConfirmPasswordError', 'Подтвердите пароль');
+            isValid = false;
+        } else if (password !== confirmPassword) {
+            this.showError('registerConfirmPasswordError', 'Пароли не совпадают');
+            isValid = false;
+        }
+        
+        if (!isValid) return;
+        
+        // Блокировка кнопки
+        const registerBtn = document.getElementById('registerBtn');
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'Регистрация...';
+        
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showMessage('registerMessage', 'Регистрация успешна!', 'success');
+                setTimeout(() => {
+                    this.hide();
+                    window.location.reload();
+                }, 1500);
+            } else {
+                this.showMessage('registerMessage', data.error || 'Ошибка регистрации', 'error');
+            }
+        } catch (error) {
+            this.showMessage('registerMessage', 'Ошибка сети', 'error');
+        } finally {
+            registerBtn.disabled = false;
+            registerBtn.textContent = 'Создать аккаунт';
+        }
+    }
+
+    validateEmail(email) {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    }
+
+    showError(elementId, message) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = message;
+            element.classList.add('active');
+            
+            // Добавляем класс ошибки к инпуту
+            const inputId = elementId.replace('Error', '');
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.classList.add('error');
+            }
+        }
+    }
+
+    clearErrors(formType) {
+        const errors = document.querySelectorAll(`.form-error`);
+        errors.forEach(error => {
+            error.classList.remove('active');
+            error.textContent = '';
+            
+            // Убираем класс ошибки у инпутов
+            const inputId = error.id.replace('Error', '');
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.classList.remove('error');
+            }
+        });
+    }
+
+    showMessage(elementId, message, type) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = message;
+            element.className = `auth-message ${type}`;
+        }
+    }
+
+    clearMessages() {
+        const messages = document.querySelectorAll('.auth-message');
+        messages.forEach(msg => {
+            msg.className = 'auth-message';
+            msg.textContent = '';
+        });
+    }
+
+    show() {
+        this.modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+        // Очищаем формы при открытии
+        this.clearErrors('login');
+        this.clearErrors('register');
+        this.clearMessages();
+        
+        // Сбрасываем инпуты
+        document.getElementById('loginUsername').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('registerUsername').value = '';
+        document.getElementById('registerEmail').value = '';
+        document.getElementById('registerPassword').value = '';
+        document.getElementById('registerConfirmPassword').value = '';
+        
+        // Устанавливаем активной форму входа
+        this.switchTab('login');
+    }
+
+    hide() {
+        this.modal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    window.authModal = new AuthModal();
+    
+    // Проверяем статус авторизации
+    checkAuthStatus();
+});
+
+// Функция проверки статуса авторизации
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/me');
+        const data = await response.json();
+        
+        const authButton = document.getElementById('authButton');
+        const profileButton = document.getElementById('profileButton');
+        const profileAvatar = document.getElementById('profileAvatar');
+        const profileName = document.getElementById('profileName');
+        
+        if (data.authenticated) {
+            // Показываем профиль, скрываем кнопку Sign in
+            if (authButton) authButton.style.display = 'none';
+            if (profileButton) profileButton.style.display = 'flex';
+            
+            // Заполняем данные профиля
+            if (profileAvatar) {
+                profileAvatar.textContent = data.user.username.charAt(0).toUpperCase();
+            }
+            if (profileName) {
+                profileName.textContent = data.user.username;
+            }
+        } else {
+            // Показываем кнопку Sign in, скрываем профиль
+            if (authButton) authButton.style.display = 'block';
+            if (profileButton) profileButton.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Ошибка проверки авторизации:', error);
+    }
+}
+</script>
 </body>
 </html>
