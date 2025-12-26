@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./style.css">
+    <title>Games - xtteam</title>
+    <link rel="icon" href="./images/icons/icon.svg">
+</head>
+<body>
+    <header class="header">
+        <a class = "logo" href="./index.html"><img class = "logo" src="./images/icons/icon.svg" alt="logo"> <h1  href="#!">xtteam</h1></a>
+        <ul class="header_list">
+            <li><a class="header_purple" href="./index.html">!Latest news!</a></li>
+            <li><a class = "dot">•</a></li>
+            <li><a class="header_purple" href="./games/games.html">Games</a></li>
+            <li><a class = "dot">•</a></li>
+            <li><a class="header_purple" href="./aboutUs/aboutUs.html">About us</a></li>
+        </ul>
+        <a class="btn" href="mrcet040@gmail.com">Sign in</a>
+    </header>
+    <div class ="rectbg">
+        <div>
+            <p class="slogan">Games Are Fun!</p>
+        </div>
+        <div class="container">
+            
+            <div class="image-grid">
+                <!-- Плитка 1: средний прямоугольник с длинной вертикальной стороной -->
+                <div class="tile tile-1">
+                    <div class="tile-overlay">
+                        <div class="tile-content">
+                            <h2 class="tile-title">Strange games?</h2>
+                            <p class="tile-description">Maybe WDK </p>   
+                            <p class="tile-description">Try by yourself</p>
+                        </div>
+                        <a class="btn btn-small" href="./games/games.html">Learn more</a>
+                    </div>
+                </div>
+                
+                <!-- Плитка 2: верхняя большая горизонтальная (часть буквы Г) -->
+                <div class="tile tile-2">
+                    <div class="tile-overlay">
+                        <div class="tile-content">
+                            <h2 class="tile-title">Our goal is your entertainment</h2>
+                            <p class="tile-description">Every second person is happy</p>
+                            <p class="tile-description"> (I'm sad, but what about you?)</p>
+                             
+                        </div>
+                        <!-- <a href="#" class="btn">Learn more</a> -->
+                    </div>
+                </div>
+                
+                <!-- Плитка 3: нижняя квадратная (часть буквы Г) -->
+                <div class="tile tile-3">
+                    <div class="tile-overlay">
+                        <div class="tile-content">
+                            <h2 class="tile-title">This is our site</h2>
+                            <p class="tile-description">And we can do anything we want!!!</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Плитка 4: квадратная крупного размера -->
+                <div class="tile tile-4">
+                    <div class="tile-overlay">
+                        <div class="tile-content">
+                            <h2 class="tile-title">Think about it 0_0</h2>
+                            <!-- <a href="#" class="btn">Learn more</a> -->
+                        </div>
+                    </div>
+                </div>
+                
+                
+                <!-- Плитки 5, 6, 7: три маленькие вертикальные плитки -->
+                <div class="tile tile-5">
+                    <!-- Без текста, только изображение -->
+                </div>
+                
+                <div class="tile tile-6">
+                    <!-- Без текста, только изображение -->
+                </div>
+                
+                <div class="tile tile-7">
+                    <!-- Без текста, только изображение -->
+                </div>
+            </div>
+            
+        </div>
+        
+        <script>
+            
+            
+            // Добавляем эффект при наведении на плитки
+            document.querySelectorAll('.tile').forEach(tile => {
+                tile.addEventListener('mouseenter', function() {
+                    // Добавляем небольшой эффект для текста внутри плитки
+                    const title = this.querySelector('.tile-title');
+                    if (title) {
+                        title.style.transform = 'translateY(-5px)';
+                        title.style.transition = 'transform 0.3s ease';
+                    }
+                });
+                
+                tile.addEventListener('mouseleave', function() {
+                    // Возвращаем текст на место
+                    const title = this.querySelector('.tile-title');
+                    if (title) {
+                        title.style.transform = 'translateY(0)';
+                    }
+                });
+            });
+        </script>
+
+    <div>
+        <p class="slogan">Latest news</p>
+    </div>
+    <!-- NEWS -->
+    <div class="container">
+        <section class="news-section">
+            <!-- Новость 1 -->
+            <article class="news-card">
+                <div class="news-image">
+                    <img src="./images/news/Iron Man Smirk GIF.gif" alt="New Game Announcement">
+                    <div class="news-date">
+                        <span class="news-day">26</span>
+                        <span class="news-month">DEC</span>
+                        <span class="news-year">2025</span>
+                    </div>
+                </div>
+                <div class="news-content">
+                    <h3 class="news-title">Jarvis start xtteam's site</h3>
+                    <p class="news-excerpt">WDK just look at the gif above</p>
+                    <div class="news-meta">
+                        <span class="news-author">By xttort</span>
+                        <div class="news-category">ANNOUNCEMENT</div>
+                    </div>
+                </div>
+            </article>
+
+
+        </section>
+    </div>
+    <div>
+        <section class="features">
+            <!-- Support Card -->
+            <article class="feature-card">
+                <img class="card-icon" src="./images/icons/icon-mail.svg" alt="logo">
+                <h3 class="left-feature-card-text">xttort's mail</h3>
+                <p class="left-feature-card-text">Send letters to xttort with your ideas! Ask him questions and many other things!</p>
+                <a href="https://mail.google.com/mail/?view=cm&fs=1&to=mrcet040@gmail.com&su=Your ideas&body=Write something!">
+                    <button class="btnSmall">Write letter</button>
+                </a>
+            </article>
+
+            <!-- Sales Growth Card -->
+            <article class="feature-card">
+                <img class="card-icon" src="./images/icons/icon-youtube.svg" alt="logo">
+                <h3 class="left-feature-card-text">xttort's youtube channel</h3>
+                <p class="left-feature-card-text">Dive into developer's and game designer's past and find out something</p>
+                <a href="https://www.youtube.com/@xttort">
+                    <button class="btnSmall">Show channel</button>
+                </a>
+            </article>
+
+            <!-- Components-driven Card -->
+            <article class="feature-card">
+                <img class="card-icon" src="./images/icons/icon-mail.svg" alt="logo">
+                <h3 class="left-feature-card-text">JustNikitaDis's mail</h3>
+                <p class="left-feature-card-text">Send letters to JustNikitaDis with your ideas! Ask him questions and many other things!</p>
+                <a href="https://mail.google.com/mail/?view=cm&fs=1&to=nikita1911200418@gmail.com&su=Your ideas&body=Write something!">
+                    <button class="btnSmall">Write letter</button>
+                </a>
+            </article>
+
+            <!-- Swap the Icon Card -->
+            <article class="feature-card">
+                <img class="card-icon" src="./images/icons/icon-youtube.svg" alt="logo">
+                <h3 class="left-feature-card-text">JustNikitaDis's youtube channel</h3>
+                <p class="left-feature-card-text">Dive into developer's and game designer's past and find out something</p>
+                <a href="https://www.youtube.com/@justnikitaplays1472">
+                    <button class="btnSmall">Show channel</button>
+                </a>
+            </article>
+        </section>
+    </div>
+
+    </div>
+    
+    <footer >
+        <h1 class="footerWave">© 2025 xtteam. All rights reserved.</h1>
+    </footer>
+
+
+</body>
+</html>
