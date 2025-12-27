@@ -36,9 +36,25 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(session(sessionConfig));
 
+// Определяем корневую директорию
+const rootDir = process.env.NODE_ENV === 'production' 
+    ? __dirname  // На Render всё в одной директории
+    : __dirname;
+
+console.log('Root directory:', rootDir);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 // Статические файлы
-app.use(express.static(path.join(__dirname)));
-app.use('/images', express.static(path.join(__dirname, 'images')));
+app.use(express.static(rootDir)); // Основная директория
+app.use('/images', express.static(path.join(rootDir, 'images')));
+app.use('/fonts', express.static(path.join(rootDir, 'fonts')));
+
+// Проверяем существование файлов
+const checkFileExists = (filePath) => {
+    const fullPath = path.join(rootDir, filePath);
+    console.log(`Checking file: ${filePath} -> ${fullPath}`);
+    return fs.existsSync(fullPath);
+};
 
 // CORS для Render
 app.use((req, res, next) => {
@@ -81,9 +97,16 @@ app.get('/api/health', async (req, res) => {
             userId: req.session.userId || 'none',
             username: req.session.username || 'none',
             database: 'PostgreSQL',
-            status: status
+            status: status,
+            rootDir: rootDir,
+            files: {
+                index: checkFileExists('index.html'),
+                profile: checkFileExists('profile.html'),
+                server: checkFileExists('server.js')
+            }
         });
     } catch (error) {
+        console.error('Health check error:', error);
         res.status(500).json({
             success: false,
             error: 'Database connection failed'
@@ -98,9 +121,12 @@ app.get('/api/debug-session', (req, res) => {
         userId: req.session.userId,
         username: req.session.username,
         cookie: req.headers.cookie,
-        headers: req.headers
+        rootDir: rootDir
     });
 });
+
+// ... остальные API эндпоинты (register, login, logout, achievements) остаются без изменений ...
+// (Используйте код из предыдущего ответа для этих эндпоинтов)
 
 // API: Register (ENGLISH ONLY)
 app.post('/api/register', async (req, res) => {
@@ -377,21 +403,90 @@ app.get('/api/me', async (req, res) => {
     }
 });
 
-// Serve HTML pages
+// Маршруты для HTML страниц (ИСПРАВЛЕННЫЕ ПУТИ)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    const indexPath = path.join(rootDir, 'index.html');
+    console.log('Serving index.html from:', indexPath);
+    
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        // Fallback
+        res.status(404).send('<h1>index.html not found</h1><p>Looking in: ' + indexPath + '</p>');
+    }
 });
 
 app.get('/profile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'profile.html'));
+    const profilePath = path.join(rootDir, 'profile.html');
+    console.log('Serving profile.html from:', profilePath);
+    
+    if (fs.existsSync(profilePath)) {
+        res.sendFile(profilePath);
+    } else {
+        res.redirect('/');
+    }
 });
 
 app.get('/games', (req, res) => {
-    res.sendFile(path.join(__dirname, 'games', 'games.html'));
+    // Пробуем несколько возможных путей
+    const possiblePaths = [
+        path.join(rootDir, 'games.html'),
+        path.join(rootDir, 'games', 'games.html'),
+        path.join(rootDir, 'games/games.html')
+    ];
+    
+    for (const gamePath of possiblePaths) {
+        console.log('Checking games at:', gamePath);
+        if (fs.existsSync(gamePath)) {
+            console.log('Found games at:', gamePath);
+            return res.sendFile(gamePath);
+        }
+    }
+    
+    // Если не нашли - редирект на главную
+    console.log('Games page not found, redirecting to /');
+    res.redirect('/');
 });
 
 app.get('/about', (req, res) => {
-    res.sendFile(path.join(__dirname, 'aboutUs', 'aboutUs.html'));
+    // Пробуем несколько возможных путей
+    const possiblePaths = [
+        path.join(rootDir, 'about.html'),
+        path.join(rootDir, 'aboutUs.html'),
+        path.join(rootDir, 'aboutUs', 'aboutUs.html'),
+        path.join(rootDir, 'aboutUs/aboutUs.html')
+    ];
+    
+    for (const aboutPath of possiblePaths) {
+        console.log('Checking about at:', aboutPath);
+        if (fs.existsSync(aboutPath)) {
+            console.log('Found about at:', aboutPath);
+            return res.sendFile(aboutPath);
+        }
+    }
+    
+    // Если не нашли - редирект на главную
+    console.log('About page not found, redirecting to /');
+    res.redirect('/');
+});
+
+// Статические файлы для подпапок
+app.get('/games/games.html', (req, res) => {
+    const gamePath = path.join(rootDir, 'games', 'games.html');
+    if (fs.existsSync(gamePath)) {
+        res.sendFile(gamePath);
+    } else {
+        res.redirect('/');
+    }
+});
+
+app.get('/aboutUs/aboutUs.html', (req, res) => {
+    const aboutPath = path.join(rootDir, 'aboutUs', 'aboutUs.html');
+    if (fs.existsSync(aboutPath)) {
+        res.sendFile(aboutPath);
+    } else {
+        res.redirect('/');
+    }
 });
 
 // Fallback for all other routes
@@ -399,13 +494,30 @@ app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) {
         res.status(404).json({ error: 'API endpoint not found' });
     } else {
-        res.status(404).sendFile(path.join(__dirname, 'index.html'));
+        // Пробуем найти файл
+        const filePath = path.join(rootDir, req.path);
+        if (fs.existsSync(filePath) && !fs.lstatSync(filePath).isDirectory()) {
+            res.sendFile(filePath);
+        } else {
+            // Редирект на главную
+            res.redirect('/');
+        }
     }
 });
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Database: PostgreSQL`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📁 Root directory: ${rootDir}`);
+    
+    // Проверяем существование ключевых файлов
+    console.log('\n📋 File check:');
+    const filesToCheck = ['index.html', 'profile.html', 'server.js', 'package.json'];
+    filesToCheck.forEach(file => {
+        const filePath = path.join(rootDir, file);
+        const exists = fs.existsSync(filePath);
+        console.log(`  ${exists ? '✅' : '❌'} ${file} - ${exists ? 'Found' : 'Missing'}`);
+    });
 });
