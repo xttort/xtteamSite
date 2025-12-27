@@ -1,3 +1,5 @@
+
+
 const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
@@ -12,15 +14,30 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(session({
+
+// Настройка сессий для Render
+const sessionConfig = {
     secret: process.env.SESSION_SECRET || 'xtteam-secret-key-2025',
     resave: false,
     saveUninitialized: false,
     cookie: {
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 часа
-    }
-}));
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 часа
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    },
+    // Для Render нужно настроить store если будет масштабирование
+    // store: new (require('connect-pg-simple')(session))({...})
+};
+
+// Настройка proxy для HTTPS на Render
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+    sessionConfig.cookie.secure = true;
+    sessionConfig.cookie.sameSite = 'none';
+}
+
+app.use(session(sessionConfig));
 
 // Статические файлы
 app.use(express.static(path.join(__dirname)));
@@ -29,6 +46,25 @@ app.use(express.static(path.join(__dirname, 'games')));
 app.use(express.static(path.join(__dirname, 'aboutUs')));
 app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
+
+// CORS для Render
+app.use((req, res, next) => {
+    const allowedOrigins = [
+        'https://' + process.env.RENDER_EXTERNAL_HOSTNAME,
+        'http://localhost:3000',
+        'http://localhost:' + PORT
+    ];
+    
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
+    
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    next();
+});
 
 // Middleware для проверки авторизации
 app.use((req, res, next) => {
@@ -39,12 +75,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Проверка подключения к БД
+// Health check
 app.get('/api/health', async (req, res) => {
     try {
         const status = await db.checkDatabaseStatus();
         res.json({
             success: true,
+            session: req.sessionID ? 'active' : 'none',
+            userId: req.session.userId || 'none',
             database: 'PostgreSQL',
             status: status
         });
@@ -55,6 +93,18 @@ app.get('/api/health', async (req, res) => {
         });
     }
 });
+
+// Эндпоинт для проверки сессии
+app.get('/api/session-check', (req, res) => {
+    res.json({
+        authenticated: !!req.session.userId,
+        userId: req.session.userId,
+        username: req.session.username,
+        sessionId: req.sessionID
+    });
+});
+
+// ... остальные API эндпоинты без изменений (register, login, logout, achievements и т.д.)
 
 // API эндпоинты (остаются без изменений, кроме исправления)
 app.post('/api/register', async (req, res) => {

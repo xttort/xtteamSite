@@ -204,71 +204,71 @@
         <button class="close-modal" id="closeAuthModal">&times;</button>
         
         <div class="auth-tabs">
-            <button class="auth-tab active" data-tab="login">Вход</button>
-            <button class="auth-tab" data-tab="register">Регистрация</button>
+            <button class="auth-tab active" data-tab="login">Login</button>
+            <button class="auth-tab" data-tab="register">Register</button>
         </div>
 
         <!-- Форма входа -->
         <div id="loginForm" class="auth-form active">
-            <h2 class="form-title">Вход в аккаунт</h2>
+            <h2 class="form-title">Login</h2>
             
             <div class="auth-message" id="loginMessage"></div>
             
             <div class="form-group">
-                <label class="form-label">Имя пользователя</label>
-                <input type="text" class="form-input" id="loginUsername" placeholder="Введите ваш логин">
+                <label class="form-label">user name</label>
+                <input type="text" class="form-input" id="loginUsername" placeholder="Write your login">
                 <div class="form-error" id="loginUsernameError"></div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Пароль</label>
-                <input type="password" class="form-input" id="loginPassword" placeholder="Введите ваш пароль">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="loginPassword" placeholder="Write your password">
                 <div class="form-error" id="loginPasswordError"></div>
             </div>
             
-            <button class="auth-btn" id="loginBtn">Войти</button>
+            <button class="auth-btn" id="loginBtn">Login</button>
             
             <div class="form-switch">
-                Нет аккаунта?
-                <a class="switch-link" data-switch="register">Зарегистрируйтесь</a>
+                Don't have an account?
+                <a class="switch-link" data-switch="register">Register</a>
             </div>
         </div>
 
         <!-- Форма регистрации -->
         <div id="registerForm" class="auth-form">
-            <h2 class="form-title">Создание аккаунта</h2>
+            <h2 class="form-title">Create account</h2>
             
             <div class="auth-message" id="registerMessage"></div>
             
             <div class="form-group">
-                <label class="form-label">Имя пользователя</label>
-                <input type="text" class="form-input" id="registerUsername" placeholder="Придумайте логин">
+                <label class="form-label">User name</label>
+                <input type="text" class="form-input" id="registerUsername" placeholder="Create a password">
                 <div class="form-error" id="registerUsernameError"></div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Email (необязательно)</label>
+                <label class="form-label">Email (optional)</label>
                 <input type="email" class="form-input" id="registerEmail" placeholder="example@email.com">
                 <div class="form-error" id="registerEmailError"></div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Пароль</label>
-                <input type="password" class="form-input" id="registerPassword" placeholder="Придумайте пароль">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="registerPassword" placeholder="Create a password">
                 <div class="form-error" id="registerPasswordError"></div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Подтверждение пароля</label>
-                <input type="password" class="form-input" id="registerConfirmPassword" placeholder="Повторите пароль">
+                <label class="form-label">Password confirmation</label>
+                <input type="password" class="form-input" id="registerConfirmPassword" placeholder="Repeat a password">
                 <div class="form-error" id="registerConfirmPasswordError"></div>
             </div>
             
-            <button class="auth-btn" id="registerBtn">Создать аккаунт</button>
+            <button class="auth-btn" id="registerBtn">Create account</button>
             
             <div class="form-switch">
-                Уже есть аккаунт?
-                <a class="switch-link" data-switch="login">Войдите</a>
+                Already have an account?
+                <a class="switch-link" data-switch="login">Login</a>
             </div>
         </div>
     </div>
@@ -350,132 +350,66 @@ class AuthModal {
     }
 
     async handleLogin() {
-        const username = document.getElementById('loginUsername').value.trim();
-        const password = document.getElementById('loginPassword').value.trim();
-        
-        // Очистка ошибок
-        this.clearErrors('login');
-        
-        // Валидация
-        let isValid = true;
-        
-        if (!username) {
-            this.showError('loginUsernameError', 'Введите имя пользователя');
-            isValid = false;
-        }
-        
-        if (!password) {
-            this.showError('loginPasswordError', 'Введите пароль');
-            isValid = false;
-        }
-        
-        if (!isValid) return;
-        
-        // Блокировка кнопки
-        const loginBtn = document.getElementById('loginBtn');
-        loginBtn.disabled = true;
-        loginBtn.textContent = 'Вход...';
-        
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showMessage('loginMessage', 'Вход выполнен успешно!', 'success');
-                setTimeout(() => {
-                    this.hide();
-                    window.location.reload();
-                }, 1500);
-            } else {
-                this.showMessage('loginMessage', data.error || 'Ошибка входа', 'error');
-            }
-        } catch (error) {
-            this.showMessage('loginMessage', 'Ошибка сети', 'error');
-        } finally {
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Войти';
-        }
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    
+    // Очистка ошибок
+    this.clearErrors('login');
+    
+    // Валидация
+    let isValid = true;
+    
+    if (!username) {
+        this.showError('loginUsernameError', 'Enter username');
+        isValid = false;
     }
-
-    async handleRegister() {
-        const username = document.getElementById('registerUsername').value.trim();
-        const email = document.getElementById('registerEmail').value.trim();
-        const password = document.getElementById('registerPassword').value.trim();
-        const confirmPassword = document.getElementById('registerConfirmPassword').value.trim();
+    
+    if (!password) {
+        this.showError('loginPasswordError', 'Enter password');
+        isValid = false;
+    }
+    
+    if (!isValid) return;
+    
+    // Блокировка кнопки
+    const loginBtn = document.getElementById('loginBtn');
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Logging in...';
+    
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include', // Важно для сохранения сессии
+            body: JSON.stringify({ username, password })
+        });
         
-        // Очистка ошибок
-        this.clearErrors('register');
+        const data = await response.json();
         
-        // Валидация
-        let isValid = true;
-        
-        if (!username) {
-            this.showError('registerUsernameError', 'Введите имя пользователя');
-            isValid = false;
-        } else if (username.length < 3) {
-            this.showError('registerUsernameError', 'Минимум 3 символа');
-            isValid = false;
+        if (data.success) {
+            this.showMessage('loginMessage', 'Login successful!', 'success');
+            
+            // Даем время на сохранение сессии
+            setTimeout(() => {
+                this.hide();
+                // Принудительно обновляем статус авторизации
+                checkAuth();
+                // Перезагружаем страницу для применения всех изменений
+                window.location.reload();
+            }, 1000);
+        } else {
+            this.showMessage('loginMessage', data.error || 'Login error', 'error');
         }
-        
-        if (email && !this.validateEmail(email)) {
-    this.showError('registerEmailError', 'Неверный формат email');
-    isValid = false;
+    } catch (error) {
+        console.error('Network error:', error);
+        this.showMessage('loginMessage', 'Network error. Check console.', 'error');
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Login';
+    }
 }
-        
-        if (!password) {
-            this.showError('registerPasswordError', 'Введите пароль');
-            isValid = false;
-        } else if (password.length < 6) {
-            this.showError('registerPasswordError', 'Минимум 6 символов');
-            isValid = false;
-        }
-        
-        if (!confirmPassword) {
-            this.showError('registerConfirmPasswordError', 'Подтвердите пароль');
-            isValid = false;
-        } else if (password !== confirmPassword) {
-            this.showError('registerConfirmPasswordError', 'Пароли не совпадают');
-            isValid = false;
-        }
-        
-        if (!isValid) return;
-        
-        // Блокировка кнопки
-        const registerBtn = document.getElementById('registerBtn');
-        registerBtn.disabled = true;
-        registerBtn.textContent = 'Регистрация...';
-        
-        try {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showMessage('registerMessage', 'Регистрация успешна!', 'success');
-                setTimeout(() => {
-                    this.hide();
-                    window.location.reload();
-                }, 1500);
-            } else {
-                this.showMessage('registerMessage', data.error || 'Ошибка регистрации', 'error');
-            }
-        } catch (error) {
-            this.showMessage('registerMessage', 'Ошибка сети', 'error');
-        } finally {
-            registerBtn.disabled = false;
-            registerBtn.textContent = 'Создать аккаунт';
-        }
-    }
-
     validateEmail(email) {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(email);
@@ -562,36 +496,53 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
 });
 
-// Функция проверки статуса авторизации
-async function checkAuthStatus() {
+// Обновленная функция проверки авторизации
+async function checkAuth() {
     try {
-        const response = await fetch('/api/me');
+        // Сначала проверяем через /api/me
+        const response = await fetch('/api/me', {
+            credentials: 'include' // Важно для кук
+        });
+        
         const data = await response.json();
         
-        const authButton = document.getElementById('authButton');
-        const profileButton = document.getElementById('profileButton');
-        const profileAvatar = document.getElementById('profileAvatar');
-        const profileName = document.getElementById('profileName');
-        
-        if (data.authenticated) {
-            // Показываем профиль, скрываем кнопку Sign in
+        if (data.authenticated && data.user) {
+            // Пользователь авторизован
+            const authButton = document.getElementById('authButton');
+            const profileButton = document.getElementById('profileButton');
+            const profileAvatar = document.getElementById('profileAvatar');
+            const profileName = document.getElementById('profileName');
+            
             if (authButton) authButton.style.display = 'none';
             if (profileButton) profileButton.style.display = 'flex';
             
-            // Заполняем данные профиля
             if (profileAvatar) {
                 profileAvatar.textContent = data.user.username.charAt(0).toUpperCase();
             }
             if (profileName) {
                 profileName.textContent = data.user.username;
             }
+            
+            console.log('✅ Авторизован как:', data.user.username);
         } else {
-            // Показываем кнопку Sign in, скрываем профиль
+            // Не авторизован
+            const authButton = document.getElementById('authButton');
+            const profileButton = document.getElementById('profileButton');
+            
             if (authButton) authButton.style.display = 'block';
             if (profileButton) profileButton.style.display = 'none';
+            
+            console.log('❌ Не авторизован');
         }
     } catch (error) {
         console.error('Ошибка проверки авторизации:', error);
+        
+        // Fallback: показываем кнопку входа
+        const authButton = document.getElementById('authButton');
+        const profileButton = document.getElementById('profileButton');
+        
+        if (authButton) authButton.style.display = 'block';
+        if (profileButton) profileButton.style.display = 'none';
     }
 }
 </script>
