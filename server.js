@@ -1,5 +1,3 @@
-
-
 const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
@@ -23,11 +21,9 @@ const sessionConfig = {
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 часа
+        maxAge: 24 * 60 * 60 * 1000,
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    },
-    // Для Render нужно настроить store если будет масштабирование
-    // store: new (require('connect-pg-simple')(session))({...})
+    }
 };
 
 // Настройка proxy для HTTPS на Render
@@ -35,22 +31,19 @@ if (process.env.NODE_ENV === 'production') {
     app.set('trust proxy', 1);
     sessionConfig.cookie.secure = true;
     sessionConfig.cookie.sameSite = 'none';
+    sessionConfig.proxy = true;
 }
 
 app.use(session(sessionConfig));
 
 // Статические файлы
 app.use(express.static(path.join(__dirname)));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(path.join(__dirname, 'games')));
-app.use(express.static(path.join(__dirname, 'aboutUs')));
 app.use('/images', express.static(path.join(__dirname, 'images')));
-app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
 
 // CORS для Render
 app.use((req, res, next) => {
     const allowedOrigins = [
-        'https://' + process.env.RENDER_EXTERNAL_HOSTNAME,
+        `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`,
         'http://localhost:3000',
         'http://localhost:' + PORT
     ];
@@ -61,19 +54,22 @@ app.use((req, res, next) => {
     }
     
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     next();
 });
 
 // Middleware для проверки авторизации
-app.use((req, res, next) => {
-    if (req.session.userId) {
-        req.userId = req.session.userId;
-        req.username = req.session.username;
-    }
+const authMiddleware = (req, res, next) => {
+    console.log('Session check:', {
+        sessionId: req.sessionID,
+        userId: req.session.userId,
+        username: req.session.username
+    });
     next();
-});
+};
+
+app.use(authMiddleware);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -83,6 +79,7 @@ app.get('/api/health', async (req, res) => {
             success: true,
             session: req.sessionID ? 'active' : 'none',
             userId: req.session.userId || 'none',
+            username: req.session.username || 'none',
             database: 'PostgreSQL',
             status: status
         });
@@ -94,19 +91,18 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// Эндпоинт для проверки сессии
-app.get('/api/session-check', (req, res) => {
+// Session debug endpoint
+app.get('/api/debug-session', (req, res) => {
     res.json({
-        authenticated: !!req.session.userId,
+        sessionId: req.sessionID,
         userId: req.session.userId,
         username: req.session.username,
-        sessionId: req.sessionID
+        cookie: req.headers.cookie,
+        headers: req.headers
     });
 });
 
-// ... остальные API эндпоинты без изменений (register, login, logout, achievements и т.д.)
-
-// API эндпоинты (остаются без изменений, кроме исправления)
+// API: Register (ENGLISH ONLY)
 app.post('/api/register', async (req, res) => {
     try {
         const { username, password, email } = req.body;
@@ -114,52 +110,56 @@ app.post('/api/register', async (req, res) => {
         if (!username || !password) {
             return res.status(400).json({
                 success: false,
-                error: 'Имя пользователя и пароль обязательны'
+                error: 'Username and password are required'
             });
         }
         
         if (username.length < 3) {
             return res.status(400).json({
                 success: false,
-                error: 'Имя пользователя должно быть не менее 3 символов'
+                error: 'Username must be at least 3 characters'
             });
         }
         
         if (password.length < 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Пароль должен быть не менее 6 символов'
+                error: 'Password must be at least 6 characters'
             });
         }
         
-        // Обработка email
+        // Email validation
         let cleanEmail = null;
         if (email && email.trim() !== '') {
             cleanEmail = email.trim();
-            if (!isValidEmail(cleanEmail)) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(cleanEmail)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Неверный формат email'
+                    error: 'Invalid email format'
                 });
             }
         }
         
-        // Проверяем существование пользователя
+        // Check if user exists
         const existingUser = await db.getUserByUsername(username);
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                error: 'Пользователь с таким именем уже существует'
+                error: 'Username already taken'
             });
         }
         
-        // Создаем пользователя
+        // Create user
         const userId = await db.createUser(username, password, cleanEmail);
         
+        // Set session
         req.session.userId = userId;
         req.session.username = username;
         
-        // Автоматически разблокируем достижение за регистрацию
+        console.log(`✅ User registered: ${username} (ID: ${userId})`);
+        
+        // Unlock registration achievement
         await db.unlockAchievement(userId, "With Registration!");
         
         res.json({
@@ -171,15 +171,15 @@ app.post('/api/register', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Ошибка регистрации:', error);
+        console.error('Registration error:', error);
         
-        let errorMessage = 'Внутренняя ошибка сервера';
+        let errorMessage = 'Internal server error';
         
         if (error.message && error.message.includes('duplicate key')) {
             if (error.message.includes('email')) {
-                errorMessage = 'Пользователь с таким email уже существует';
+                errorMessage = 'Email already registered';
             } else if (error.message.includes('username')) {
-                errorMessage = 'Пользователь с таким именем уже существует';
+                errorMessage = 'Username already taken';
             }
         }
         
@@ -190,15 +190,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Функция проверки email
-function isValidEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-}
-
-// Остальные эндпоинты остаются без изменений (login, logout, achievements, unlock-achievement, me)
-
-// Вход
+// API: Login (ENGLISH ONLY)
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -206,24 +198,27 @@ app.post('/api/login', async (req, res) => {
         if (!username || !password) {
             return res.status(400).json({
                 success: false,
-                error: 'Имя пользователя и пароль обязательны'
+                error: 'Username and password are required'
             });
         }
         
-        // Проверяем пользователя
+        // Verify user
         const isValid = await db.verifyUser(username, password);
         if (!isValid) {
             return res.status(401).json({
                 success: false,
-                error: 'Неверное имя пользователя или пароль'
+                error: 'Invalid username or password'
             });
         }
         
-        // Получаем пользователя
+        // Get user
         const user = await db.getUserByUsername(username);
         
+        // Set session
         req.session.userId = user.id;
         req.session.username = user.username;
+        
+        console.log(`✅ User logged in: ${username} (ID: ${user.id})`);
         
         res.json({
             success: true,
@@ -234,33 +229,36 @@ app.post('/api/login', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Ошибка входа:', error);
+        console.error('Login error:', error);
         res.status(500).json({
             success: false,
-            error: 'Внутренняя ошибка сервера'
+            error: 'Internal server error'
         });
     }
 });
 
-// Выход
+// API: Logout
 app.post('/api/logout', (req, res) => {
+    const username = req.session.username;
+    
     req.session.destroy((err) => {
         if (err) {
-            console.error('Ошибка выхода:', err);
+            console.error('Logout error:', err);
             return res.status(500).json({
                 success: false,
-                error: 'Ошибка выхода из системы'
+                error: 'Logout failed'
             });
         }
         
         res.clearCookie('connect.sid');
+        console.log(`✅ User logged out: ${username}`);
         res.json({
             success: true
         });
     });
 });
 
-// Получение достижений пользователя
+// API: Get user achievements
 app.get('/api/achievements', async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -271,13 +269,15 @@ app.get('/api/achievements', async (req, res) => {
         if (userId) {
             achievements = await db.getUserAchievements(userId);
             user = await db.getUserById(userId);
+            console.log(`✅ Achievements loaded for user ${userId}: ${achievements.length} achievements`);
         } else {
-            // Если пользователь не авторизован, показываем все достижения как заблокированные
+            // If not authenticated, show all achievements as locked
             const allAchievements = await db.getAllAchievements();
             achievements = allAchievements.map(a => ({
                 ...a,
                 unlocked: false
             }));
+            console.log(`✅ Achievements loaded for guest: ${achievements.length} achievements`);
         }
         
         res.json({
@@ -287,15 +287,15 @@ app.get('/api/achievements', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Ошибка получения достижений:', error);
+        console.error('Achievements error:', error);
         res.status(500).json({
             success: false,
-            error: 'Внутренняя ошибка сервера'
+            error: 'Failed to load achievements'
         });
     }
 });
 
-// Разблокировка достижения
+// API: Unlock achievement
 app.post('/api/unlock-achievement', async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -304,37 +304,45 @@ app.post('/api/unlock-achievement', async (req, res) => {
         if (!userId) {
             return res.status(401).json({
                 success: false,
-                error: 'Необходима авторизация'
+                error: 'Authentication required'
             });
         }
         
         if (!achievementName) {
             return res.status(400).json({
                 success: false,
-                error: 'Название достижения обязательно'
+                error: 'Achievement name is required'
             });
         }
         
         const unlocked = await db.unlockAchievement(userId, achievementName);
         
+        console.log(`🔓 Achievement "${achievementName}" ${unlocked ? 'unlocked' : 'already unlocked'} for user ${userId}`);
+        
         res.json({
             success: unlocked,
-            message: unlocked ? 'Достижение разблокировано' : 'Достижение уже было разблокировано или не найдено'
+            message: unlocked ? 'Achievement unlocked!' : 'Achievement already unlocked'
         });
         
     } catch (error) {
-        console.error('Ошибка разблокировки достижения:', error);
+        console.error('Unlock achievement error:', error);
         res.status(500).json({
             success: false,
-            error: 'Внутренняя ошибка сервера'
+            error: 'Failed to unlock achievement'
         });
     }
 });
 
-// Получение информации о текущем пользователе
+// API: Get current user info
 app.get('/api/me', async (req, res) => {
     try {
         const userId = req.session.userId;
+        
+        console.log('API /me called - Session:', {
+            sessionId: req.sessionID,
+            userId: userId,
+            username: req.session.username
+        });
         
         if (!userId) {
             return res.json({
@@ -343,6 +351,13 @@ app.get('/api/me', async (req, res) => {
         }
         
         const user = await db.getUserById(userId);
+        
+        if (!user) {
+            req.session.destroy();
+            return res.json({
+                authenticated: false
+            });
+        }
         
         res.json({
             authenticated: true,
@@ -354,60 +369,43 @@ app.get('/api/me', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Ошибка получения информации о пользователе:', error);
+        console.error('Get user error:', error);
         res.status(500).json({
             success: false,
-            error: 'Внутренняя ошибка сервера'
+            error: 'Internal server error'
         });
     }
 });
 
-// Маршруты для HTML страниц (без изменений)
+// Serve HTML pages
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/profile', (req, res) => {
-    const profilePath = path.join(__dirname, 'profile.html');
-    
-    if (fs.existsSync(profilePath)) {
-        res.sendFile(profilePath);
-    } else {
-        const publicProfilePath = path.join(__dirname, 'public', 'profile.html');
-        if (fs.existsSync(publicProfilePath)) {
-            res.sendFile(publicProfilePath);
-        } else {
-            res.status(404).send('Страница профиля не найдена');
-        }
-    }
+    res.sendFile(path.join(__dirname, 'profile.html'));
 });
 
 app.get('/games', (req, res) => {
-    const gamesPath = path.join(__dirname, 'games', 'games.html');
-    if (fs.existsSync(gamesPath)) {
-        res.sendFile(gamesPath);
-    } else {
-        res.status(404).send('Страница игр не найдена');
-    }
+    res.sendFile(path.join(__dirname, 'games', 'games.html'));
 });
 
 app.get('/about', (req, res) => {
-    const aboutPath = path.join(__dirname, 'aboutUs', 'aboutUs.html');
-    if (fs.existsSync(aboutPath)) {
-        res.sendFile(aboutPath);
+    res.sendFile(path.join(__dirname, 'aboutUs', 'aboutUs.html'));
+});
+
+// Fallback for all other routes
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        res.status(404).json({ error: 'API endpoint not found' });
     } else {
-        res.status(404).send('Страница "О нас" не найдена');
+        res.status(404).sendFile(path.join(__dirname, 'index.html'));
     }
 });
 
-// Fallback
-app.get('*', (req, res) => {
-    res.status(404).send('Страница не найдена');
-});
-
-// Запуск сервера
+// Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
-    console.log(`📊 База данных: PostgreSQL`);
-    console.log(`📁 Корневая директория: ${__dirname}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📊 Database: PostgreSQL`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
